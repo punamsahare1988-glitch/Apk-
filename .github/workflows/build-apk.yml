@@ -1,0 +1,58 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+  release:
+    types: [ created, published ]
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew (if present)
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+          fi
+
+      - name: Build Debug APK
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
+
+      - name: Rename APK for Easy Identification
+        run: |
+          mkdir -p build-apks
+          cp app/build/outputs/apk/debug/app-debug.apk build-apks/ScreenHost-debug.apk || cp $(find app/build/outputs/apk -name "*.apk" | head -n 1) build-apks/ScreenHost-debug.apk
+
+      - name: Upload Full APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScreenHost-APK-Full
+          path: build-apks/*.apk
+          retention-days: 90
+
+      - name: Upload to GitHub Release (if release triggered)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build-apks/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

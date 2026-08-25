@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">ScreenHost</string>
+    <string name="accessibility_service_description">Enables ScreenHost to inject remote touches, clicks, gestures, and hotkeys sent from your browser.</string>
+    <string name="notification_channel_name">ScreenHost Service</string>
+    <string name="notification_channel_desc">Shows active screen casting and local web server status.</string>
+    <string name="notification_title">ScreenHost Active</string>
+    <string name="notification_text">Screen mirroring and local web control is live.</string>
+    <string name="stop_service">Stop Hosting</string>
+</resources>

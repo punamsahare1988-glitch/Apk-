@@ -1,0 +1,6 @@
+{
+  "name": "ScreenHost",
+  "description": "Local screen hosting, mirroring, and remote control over Wi-Fi for PC and browser devices with ultra-low latency.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

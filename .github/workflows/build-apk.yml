@@ -3,13 +3,18 @@ name: Build & Release APK
 on:
   push:
     branches: [ "main", "master" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
   release:
     types: [ created, published ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build Android APK
+    name: Build and Release Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +28,7 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Grant execute permission for gradlew (if present)
+      - name: Grant execute permission for gradlew
         run: |
           if [ -f "./gradlew" ]; then
             chmod +x gradlew
@@ -37,10 +42,17 @@ jobs:
             gradle assembleDebug --stacktrace
           fi
 
-      - name: Rename APK for Easy Identification
+      - name: Organize APK Files
         run: |
           mkdir -p build-apks
-          cp app/build/outputs/apk/debug/app-debug.apk build-apks/ScreenHost-debug.apk || cp $(find app/build/outputs/apk -name "*.apk" | head -n 1) build-apks/ScreenHost-debug.apk
+          APK_SRC=$(find app/build/outputs/apk -name "*debug.apk" | head -n 1)
+          if [ -f "$APK_SRC" ]; then
+            cp "$APK_SRC" build-apks/ScreenHost-v1.0-debug.apk
+            cp "$APK_SRC" build-apks/ScreenHost.apk
+          else
+            echo "Error: APK not found!"
+            exit 1
+          fi
 
       - name: Upload Full APK Artifact
         uses: actions/upload-artifact@v4
@@ -49,10 +61,16 @@ jobs:
           path: build-apks/*.apk
           retention-days: 90
 
-      - name: Upload to GitHub Release (if release triggered)
-        if: github.event_name == 'release'
+      - name: Auto-Create GitHub Release with APK (on tag or manual trigger)
         uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'push'
         with:
-          files: build-apks/*.apk
+          tag_name: ${{ github.ref_name }}
+          name: "ScreenHost Release ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: |
+            build-apks/ScreenHost.apk
+            build-apks/ScreenHost-v1.0-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

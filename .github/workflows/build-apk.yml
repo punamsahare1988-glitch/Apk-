@@ -6,15 +6,13 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-  release:
-    types: [ created, published ]
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build and Release Android APK
+    name: Build & Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -26,31 +24,31 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle
+          cache: 'gradle'
 
-      - name: Grant execute permission for gradlew
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x gradlew
-          fi
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
 
       - name: Build Debug APK
         run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-          else
-            gradle assembleDebug --stacktrace
-          fi
+          gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Organize APK Files
+      - name: Collect and Rename APK
         run: |
           mkdir -p build-apks
-          APK_SRC=$(find app/build/outputs/apk -name "*debug.apk" | head -n 1)
-          if [ -f "$APK_SRC" ]; then
-            cp "$APK_SRC" build-apks/ScreenHost-v1.0-debug.apk
-            cp "$APK_SRC" build-apks/ScreenHost.apk
+          APK_FILE=$(find app/build/outputs/apk -name "*.apk" -type f | head -n 1)
+          if [ -n "$APK_FILE" ] && [ -f "$APK_FILE" ]; then
+            echo "Found APK at: $APK_FILE"
+            cp "$APK_FILE" build-apks/ScreenHost.apk
+            cp "$APK_FILE" build-apks/ScreenHost-debug.apk
+            ls -lh build-apks/
           else
-            echo "Error: APK not found!"
+            echo "::error::No APK file was generated."
             exit 1
           fi
 
@@ -61,16 +59,17 @@ jobs:
           path: build-apks/*.apk
           retention-days: 90
 
-      - name: Auto-Create GitHub Release with APK (on tag or manual trigger)
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: ${{ github.ref_name }}
-          name: "ScreenHost Release ${{ github.ref_name }}"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v1.0.{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Release {0}', github.ref_name) || format('ScreenHost Build v1.0.{0}', github.run_number) }}
           draft: false
           prerelease: false
+          generate_release_notes: true
           files: |
             build-apks/ScreenHost.apk
-            build-apks/ScreenHost-v1.0-debug.apk
+            build-apks/ScreenHost-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

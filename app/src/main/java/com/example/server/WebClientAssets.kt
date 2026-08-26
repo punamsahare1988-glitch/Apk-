@@ -182,6 +182,49 @@ object WebClientAssets {
             background: #000;
             cursor: crosshair;
             touch-action: none;
+            transition: border-radius 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        /* Fullscreen Mode Overrides */
+        :fullscreen header,
+        :-webkit-full-screen header {
+            display: none;
+        }
+
+        :fullscreen .workspace,
+        :-webkit-full-screen .workspace {
+            height: 100vh;
+            width: 100vw;
+            background: #000;
+        }
+
+        :fullscreen .viewport-container,
+        :-webkit-full-screen .viewport-container {
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        :fullscreen #screenCanvas,
+        :-webkit-full-screen #screenCanvas {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: 100%;
+            height: 100%;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        :fullscreen .floating-remote-bar,
+        :-webkit-full-screen .floating-remote-bar {
+            bottom: 12px;
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+
+        :fullscreen .floating-remote-bar:hover,
+        :-webkit-full-screen .floating-remote-bar:hover {
+            opacity: 1;
         }
 
         /* Floating Virtual Navigation Remote */
@@ -413,6 +456,8 @@ object WebClientAssets {
             <button class="remote-btn" id="navVolUp" title="Volume Up (F2)">🔊</button>
             <button class="remote-btn" id="navScreenshot" title="Screenshot (F12)">📸</button>
             <button class="remote-btn" id="navPower" title="Power / Lock (F8)">⏻</button>
+            <div class="remote-divider"></div>
+            <button class="remote-btn" id="navFullscreen" title="Toggle Fullscreen (F)">⛶</button>
         </div>
     </div>
 
@@ -722,6 +767,9 @@ object WebClientAssets {
                 } else if (e.key === 'F10') {
                     e.preventDefault();
                     sendGlobalAction('QUICK_SETTINGS');
+                } else if (e.key === 'F11') {
+                    e.preventDefault();
+                    toggleFullscreen();
                 } else if (e.key === 'F12') {
                     e.preventDefault();
                     sendGlobalAction('SCREENSHOT');
@@ -781,14 +829,58 @@ object WebClientAssets {
                 }
             };
 
-            // Fullscreen Toggle
-            document.getElementById('btnFullscreen').onclick = () => {
-                if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(() => {});
+            // Enhanced Fullscreen Controller
+            function isFullscreen() {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            }
+
+            function toggleFullscreen() {
+                const elem = document.documentElement;
+                if (!isFullscreen()) {
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen().catch(() => {});
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    }
                 } else {
-                    document.exitFullscreen().catch(() => {});
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen().catch(() => {});
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
                 }
-            };
+            }
+
+            function updateFullscreenUI() {
+                const active = isFullscreen();
+                const btnFs = document.getElementById('btnFullscreen');
+                const navFs = document.getElementById('navFullscreen');
+                if (btnFs) btnFs.innerHTML = active ? '🗗 Exit Fullscreen' : '⛶ Fullscreen';
+                if (navFs) navFs.innerHTML = active ? '🗗' : '⛶';
+            }
+
+            document.getElementById('btnFullscreen').onclick = toggleFullscreen;
+            const navFsBtn = document.getElementById('navFullscreen');
+            if (navFsBtn) navFsBtn.onclick = toggleFullscreen;
+
+            // Double click canvas to toggle fullscreen
+            canvas.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                toggleFullscreen();
+            });
+
+            // Listen to browser fullscreen change events
+            ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(event => {
+                document.addEventListener(event, updateFullscreenUI);
+            });
 
             // Audio Toggle
             document.getElementById('btnAudioToggle').onclick = () => {
